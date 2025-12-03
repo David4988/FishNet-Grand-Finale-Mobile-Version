@@ -130,16 +130,12 @@ export default function ProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center space-y-4">
               <Avatar className="h-20 w-20 ring-4 ring-primary/20">
-                <AvatarImage
-                  src={
-                    currentUser.avatar?.includes("dicebear")
-                      ? `https://images.weserv.nl/?url=${encodeURIComponent(
-                          currentUser.avatar
-                        )}&output=svg`
-                      : currentUser.avatar
-                  }
-                  alt={currentUser.name}
-                />
+                <AvatarImage 
+  src={currentUser.avatar?.includes('dicebear') 
+    ? `https://images.weserv.nl/?url=${encodeURIComponent(currentUser.avatar)}&output=svg` 
+    : currentUser.avatar} 
+  alt={currentUser.name} 
+/>
 
                 <AvatarFallback className="bg-primary/10 text-primary text-lg">
                   {currentUser.name.slice(0, 2).toUpperCase()}
