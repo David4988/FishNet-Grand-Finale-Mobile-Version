@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual AI Chat Test - FishNet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .language-selector {
+            padding: 15px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .language-selector label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .language-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .status {
+            padding: 10px 15px;
+            background: #e3f2fd;
+            color: #1976d2;
+            font-size: 13px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .message.user .message-avatar {
+            background: #26a69a;
+        }
+
+        .message-content {
+            max-width: 65%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.assistant .message-content {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .input-area {
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-area input:focus {
+            border-color: #667eea;
+        }
+
+        .input-area button {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: transform 0.2s;
+        }
+
+        .input-area button:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .input-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎣 Multilingual AI Chat Test</h1>
+            <p>Testing multilingual support with Gemma-2B model</p>
+        </div>
+
+        <div class="language-selector">
+            <label for="language">Select Language:</label>
+            <select id="language">
+                <option value="en">English</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                <option value="ml">മലയാളം (Malayalam)</option>
+                <option value="gu">ગુજરાતી (Gujarati)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="or">ଓଡ଼ିଆ (Odia)</option>
+            </select>
+        </div>
+
+        <div class="status" id="status">✓ Ready to test multilingual chat</div>
+
+        <div class="messages" id="messages">
+            <div class="message assistant">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    नमस्ते! Welcome to the multilingual AI chat test. Select a language and ask me a question to test the model's multilingual capabilities. (This is a test version - responses will be in English as the model is still being evaluated.)
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="userInput" 
+                placeholder="Type your message... (हिंदी, தமிழ், English...)" 
+                autocomplete="off"
+            >
+            <button id="sendBtn" onclick="sendMessage()" title="Send message">
+                ➤
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const messageContainer = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDiv = document.getElementById('status');
+        const languageSelect = document.getElementById('language');
+
+        const languageNames = {
+            'en': 'English',
+            'hi': 'Hindi',
+            'ta': 'Tamil',
+            'te': 'Telugu',
+            'kn': 'Kannada',
+            'ml': 'Malayalam',
+            'gu': 'Gujarati',
+            'bn': 'Bengali',
+            'pa': 'Punjabi',
+            'mr': 'Marathi',
+            'or': 'Odia'
+        };
+
+        const sampleResponses = {
+            'en': {
+                'fish': 'Fish species vary by region. Common types include Rohu, Catla, Pomfret, and Carp.',
+                'fishing': 'Fishing techniques depend on the target species and water conditions. Popular methods include rod fishing and net fishing.',
+                'default': 'That\'s an interesting question! Based on fishing knowledge, I can help you with techniques, species identification, and location tips.'
+            },
+            'hi': {
+                'fish': 'मछली की प्रजातियाँ क्षेत्र के अनुसार भिन्न होती हैं। सामान्य प्रकारों में रोहू, कतला, पोम्फ्रेट और कार्प शामिल हैं।',
+                'fishing': 'मछली पकड़ने की तकनीकें लक्ष्य प्रजाति और जल स्थितियों पर निर्भर करती हैं।',
+                'default': 'यह एक दिलचस्प सवाल है! मछली पकड़ने के ज्ञान के आधार पर, मैं आपकी तकनीकों, प्रजातियों की पहचान और स्थान सुझावों में मदद कर सकता हूँ।'
+            },
+            'ta': {
+                'fish': 'மீன் வகைகள் பகுதிக்கு ஏற்ப வேறுபடுகின்றன. பொதுவான வகைகளில் ரோஹு, கட்ல, பம்ப்ரெட் மற்றும் கார்ப் உள்ளன.',
+                'fishing': 'மீன்பிடி நுட்பங்கள் இலக்கு இனம் மற்றும் நீர் நிலைமைகளைப் பொறுத்தது.',
+                'default': 'இது ஒரு சுவையான கேள்வி! மீன்பிடி ஞானத்தின் அடிப்படையில், நான் உங்களுக்கு நுட்பங்கள், இனங்களின் அடையாளம் மற்றும் இடம் பற்றிய ஆலோசனைகளை வழங்க முடியும்.'
+            },
+            'te': {
+                'fish': 'చేపల జాతులు ప్రాంతం ప్రకారం భిన్నంగా ఉంటాయి. సాధారణ రకాలలో రోహు, కట్ల, పెంప్ఫ్రెట్ మరియు కార్ప్ ఉన్నాయి.',
+                'fishing': 'చేపల పట్టే పద్ధతులు లక్ష్య జాతి మరియు నీటి పరిస్థితులపై ఆధారపడి ఉంటాయి.',
+                'default': 'ఇది ఆసక్తికరమైన ప్రశ్న! చేపల పట్టే జ్ఞానం ఆధారంగా, నేను మీకు పద్ధతులు, జాతుల గుర్తింపు మరియు స్థల సూచనలో సహాయం చేయగలను.'
+            }
+        };
+
+        function getCurrentLanguage() {
+            return languageSelect.value;
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = isUser ? '👤' : '🤖';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+            messageContainer.appendChild(messageDiv);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+
+        function getResponse(userMessage, language) {
+            const message = userMessage.toLowerCase();
+            const responses = sampleResponses[language] || sampleResponses['en'];
+            
+            if (message.includes('fish') || message.includes('मछली') || message.includes('மீன்')) {
+                return responses.fish;
+            } else if (message.includes('fish') || message.includes('पकड़') || message.includes('பிடி')) {
+                return responses.fishing;
+            }
+            
+            return responses.default;
+        }
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            const language = getCurrentLanguage();
+            
+            addMessage(message, true);
+            userInput.value = '';
+            sendBtn.disabled = true;
+            updateStatus(`Processing in ${languageNames[language]}...`, 'loading');
+
+            // Simulate API call delay
+            setTimeout(() => {
+                const response = getResponse(message, language);
+                addMessage(response, false);
+                updateStatus(`✓ Response generated in ${languageNames[language]}`, 'info');
+                sendBtn.disabled = false;
+                userInput.focus();
+            }, 800);
+        }
+
+        // Enter key to send
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !sendBtn.disabled) {
+                sendMessage();
+            }
+        });
+
+        userInput.focus();
+    </script>
+</body>
+</html>

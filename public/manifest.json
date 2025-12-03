@@ -1,0 +1,104 @@
+{
+  "name": "Fish Net - AI Fish Identification & Tracking",
+  "short_name": "Fish Net",
+  "description": "AI-powered fish species identification and catch tracking for fishermen and inspectors",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#1459a0",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "lifestyle"],
+  "lang": "en",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+
+  ],
+  "shortcuts": [
+    {
+      "name": "Analyze Fish",
+      "short_name": "Analyze",
+      "description": "Take a photo and identify fish species",
+      "url": "/analyze",
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "View Map",
+      "short_name": "Map",
+      "description": "See catches on interactive map",
+      "url": "/map",
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "My History",
+      "short_name": "History",
+      "description": "View your catch history",
+      "url": "/history",
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "capture_links": "existing-client-navigate",
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "screenshots": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Fish identification interface"
+    },
+    {
+      "src": "/placeholder.svg", 
+      "sizes": "1024x768",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "Interactive catch map"
+    }
+  ],
+  "features": [
+    "offline-support",
+    "camera-access",
+    "geolocation",
+    "ai-ml",
+    "file-system-access"
+  ]
+}

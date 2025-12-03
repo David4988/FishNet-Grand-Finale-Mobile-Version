@@ -1,0 +1,13 @@
+{
+  "name": "offline-ai",
+  "version": "1.0.0",
+  "description": "Fully offline WebLLM chatbot using Llama 3.2 1B",
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 8000 --directory ."
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.4"
+  },
+  "keywords": ["offline", "llm", "chat", "webllm", "llama"]
+}

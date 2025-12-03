@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Multilingual AI Chat - FishNet</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .status { font-size: 12px; opacity: 0.9; }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message { display: flex; gap: 12px; }
+        .message.user { justify-content: flex-end; }
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .message.assistant .message-content {
+            background: #f3f4f6;
+            color: #333;
+        }
+        .input-area { border-top: 1px solid #e0e0e0; padding: 16px; display: flex; gap: 10px; }
+        textarea { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; resize: none; max-height: 100px; }
+        button { padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .init { text-align: center; color: #999; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #e0e0e0; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error { background: #fee; color: #c00; padding: 16px; border-radius: 8px; border-left: 4px solid #c00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Llama Chat</h1>
+            <div class="status" id="status">Loading...</div>
+        </div>
+        <div class="messages" id="messages">
+            <div class="init">
+                <div class="spinner"></div>
+                <p id="loadText">Initializing AI model...</p>
+                <p style="font-size: 12px; margin-top: 12px; opacity: 0.7;">First load: 30-60 seconds</p>
+            </div>
+        </div>
+        <div class="input-area">
+            <textarea id="input" placeholder="Type message..." rows="1" disabled></textarea>
+            <button id="sendBtn" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        let engine = null;
+        let ready = false;
+        const msg = document.getElementById("messages");
+        const inp = document.getElementById("input");
+        const btn = document.getElementById("sendBtn");
+        const stat = document.getElementById("status");
+        const txt = document.getElementById("loadText");
+
+        async function init() {
+            try {
+                stat.textContent = "Loading WebLLM...";
+                const lib = await import("https://esm.run/@mlc-ai/web-llm");
+                
+                stat.textContent = "Creating engine...";
+                const config = {
+                    model_list: [{
+                        model_id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+                        model_lib: "./models/Llama-3.2-1B-instruct-q4f16_1-MLC/Llama-3.2-1B-instruct-q4f16_1-MLC-webllm.wasm",
+                        model_params: Array.from({length:22}, (_,i) => `./models/Llama-3.2-1B-instruct-q4f16_1-MLC/params_shard_${i}.bin`),
+                        tokenizer_files: ["./models/Llama-3.2-1B-instruct-q4f16_1-MLC/tokenizer.json"],
+                        model_loading_ctx: { remote_cache_url_prefix: "./models/Llama-3.2-1B-instruct-q4f16_1-MLC/" }
+                    }]
+                };
+                
+                engine = new lib.MLCEngine({ appConfig: config });
+                
+                engine.on("initStart", () => { stat.textContent = "Loading..."; });
+                engine.on("initProgress", (r) => {
+                    const p = Math.round((r.progress / r.total) * 100);
+                    stat.textContent = `Loading: ${p}%`;
+                    txt.textContent = `${p}% complete`;
+                });
+                engine.on("initEnd", () => {
+                    stat.textContent = "Ready!";
+                    ready = true;
+                    inp.disabled = false;
+                    btn.disabled = false;
+                    msg.innerHTML = "";
+                    add("Hi! I'm Llama 3.2 1B offline. How can I help?", "assistant");
+                });
+                
+                await engine.init("Llama-3.2-1B-Instruct-q4f16_1-MLC");
+            } catch (e) {
+                stat.textContent = "Error";
+                txt.textContent = e.message;
+                const div = document.createElement("div");
+                div.className = "error";
+                div.textContent = `Error: ${e.message}\n\nOpen debug.html or check console.`;
+                div.style.whiteSpace = "pre-wrap";
+                msg.innerHTML = "";
+                msg.appendChild(div);
+                console.error(e);
+            }
+        }
+
+        function add(text, role) {
+            const m = document.createElement("div");
+            m.className = `message ${role}`;
+            const c = document.createElement("div");
+            c.className = "message-content";
+            c.textContent = text;
+            m.appendChild(c);
+            msg.appendChild(m);
+            msg.scrollTop = msg.scrollHeight;
+        }
+
+        async function send() {
+            if (!ready) return;
+            const text = inp.value.trim();
+            if (!text) return;
+            add(text, "user");
+            inp.value = "";
+            btn.disabled = true;
+            try {
+                const res = await engine.chat.completions.create({
+                    messages: [{role: "user", content: text}],
+                    max_tokens: 512,
+                    temperature: 0.7
+                });
+                add(res.choices[0].message.content, "assistant");
+            } catch (e) {
+                add("Error: " + e.message, "assistant");
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                inp.focus();
+            }
+        }
+
+        btn.addEventListener("click", send);
+        inp.addEventListener("keydown", e => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+            }
+        });
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+</html>

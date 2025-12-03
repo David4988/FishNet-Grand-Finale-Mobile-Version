@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline AI Chat Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { color: #0ff; }
+        .status { padding: 10px; margin: 10px 0; border: 1px solid #0f0; background: #0a0a0a; }
+        .error { color: #f00; background: #330000; padding: 10px; margin: 10px 0; border-left: 4px solid #f00; }
+        .success { color: #0f0; background: #003300; padding: 10px; margin: 10px 0; border-left: 4px solid #0f0; }
+        pre { background: #000; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; background: #0f0; color: #000; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0ff; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Offline AI - Debug Console</h1>
+    
+    <h2>System Check</h2>
+    <div id="systemCheck"></div>
+    
+    <h2>Model Files</h2>
+    <div id="modelFiles"></div>
+    
+    <h2>WebLLM Test</h2>
+    <button onclick="testWebLLM()">Test WebLLM Library</button>
+    <div id="webllmTest"></div>
+    
+    <h2>Load Model</h2>
+    <button onclick="loadModel()">Initialize Model</button>
+    <div id="modelStatus"></div>
+    
+    <h2>Console Output</h2>
+    <pre id="console"></pre>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            console.log(msg);
+            const consoleDiv = document.getElementById('console');
+            const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            consoleDiv.innerHTML += line + '\n';
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+
+        const checkSystem = async () => {
+            const check = document.getElementById('systemCheck');
+            log('Checking system...');
+            
+            // Check HTTP server
+            try {
+                const res = await fetch('./index.html', {method: 'HEAD'});
+                check.innerHTML += `<div class="success">✓ HTTP Server: OK (${res.status})</div>`;
+                log('HTTP Server: OK');
+            } catch (e) {
+                check.innerHTML += `<div class="error">✗ HTTP Server: FAILED - ${e.message}</div>`;
+                log('HTTP Server: FAILED - ' + e.message);
+            }
+
+            // Check model files
+            const files = ['mlc-chat-config.json', 'tokenizer.json', 'params_shard_0.bin', 'Llama-3.2-1B-instruct-q4f16_1-MLC-webllm.wasm'];
+            const modelFiles = document.getElementById('modelFiles');
+            
+            for (const file of files) {
+                try {
+                    const res = await fetch(`./models/Llama-3.2-1B-instruct-q4f16_1-MLC/${file}`, {method: 'HEAD', credentials: 'omit'});
+                    if (res.ok || res.status === 200) {
+                        modelFiles.innerHTML += `<div class="success">✓ ${file}: OK</div>`;
+                        log(`Model file OK: ${file}`);
+                    } else {
+                        modelFiles.innerHTML += `<div class="error">✗ ${file}: HTTP ${res.status}</div>`;
+                        log(`Model file error: ${file} - HTTP ${res.status}`);
+                    }
+                } catch (e) {
+                    modelFiles.innerHTML += `<div class="error">✗ ${file}: ${e.message}</div>`;
+                    log(`Model file error: ${file} - ${e.message}`);
+                }
+            }
+        };
+
+        const testWebLLM = async () => {
+            const div = document.getElementById('webllmTest');
+            div.innerHTML = '<div class="status">Loading WebLLM...</div>';
+            log('Loading WebLLM library...');
+            
+            try {
+                const webllm = await import('https://esm.run/@mlc-ai/web-llm');
+                div.innerHTML += '<div class="success">✓ WebLLM library loaded successfully</div>';
+                log('WebLLM library loaded: OK');
+                
+                window.webllm = webllm;
+                log('WebLLM exported to window.webllm');
+                
+                // Check available models
+                log('Available exports: ' + Object.keys(webllm).join(', '));
+                
+            } catch (e) {
+                div.innerHTML += `<div class="error">✗ Failed to load WebLLM: ${e.message}</div>`;
+                log('Failed to load WebLLM: ' + e.message);
+            }
+        };
+
+        const loadModel = async () => {
+            if (!window.webllm) {
+                alert('Load WebLLM first!');
+                return;
+            }
+
+            const div = document.getElementById('modelStatus');
+            div.innerHTML = '<div class="status">Initializing engine...</div>';
+            log('Starting model initialization...');
+
+            try {
+                const engine = new window.webllm.MLCEngine({
+                    appConfig: {
+                        model_list: [
+                            {
+                                model: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+                                model_id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+                                model_lib: "./models/Llama-3.2-1B-instruct-q4f16_1-MLC/Llama-3.2-1B-instruct-q4f16_1-MLC-webllm.wasm",
+                                tokenizer_files: ["./models/Llama-3.2-1B-instruct-q4f16_1-MLC/tokenizer.json"],
+                                model_params: Array.from({length: 22}, (_, i) => `./models/Llama-3.2-1B-instruct-q4f16_1-MLC/params_shard_${i}.bin`)
+                            }
+                        ]
+                    }
+                });
+
+                engine.on('initStart', () => {
+                    log('Model init started');
+                });
+
+                engine.on('initProgress', (report) => {
+                    const percent = Math.round((report.progress / report.total) * 100);
+                    log(`Loading: ${percent}%`);
+                    div.innerHTML = `<div class="status">Loading: ${percent}%</div>`;
+                });
+
+                engine.on('initEnd', () => {
+                    log('Model initialized successfully!');
+                    div.innerHTML += '<div class="success">✓ Model initialized successfully!</div>';
+                });
+
+                log('Calling engine.init()...');
+                await engine.init("Llama-3.2-1B-Instruct-q4f16_1-MLC");
+
+            } catch (e) {
+                log('Error: ' + e.message);
+                div.innerHTML += `<div class="error">✗ Error: ${e.message}</div>`;
+                console.error(e);
+            }
+        };
+
+        // Run checks on load
+        window.addEventListener('load', () => {
+            log('Page loaded - running diagnostics...');
+            checkSystem();
+        });
+    </script>
+</body>
+</html>

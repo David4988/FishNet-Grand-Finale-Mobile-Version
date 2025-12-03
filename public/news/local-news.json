@@ -1,0 +1,26 @@
+{
+  "status": "ok",
+  "totalResults": 2,
+  "articles": [
+    {
+      "source": { "name": "Local Fisheries" },
+      "author": "Staff Reporter",
+      "title": "Community Fishers Report Strong Catch Near Estuary",
+      "description": "Local fishers report a notable increase in catches near the estuary over the last week.",
+      "url": "https://example.org/local-fisheries/estuary-catch",
+      "urlToImage": "/attached_assets/stock_images/fish/placeholder-fish.jpg",
+      "publishedAt": "2025-11-24T08:00:00Z",
+      "content": "Fishermen in the region have reported an uptick in catches..."
+    },
+    {
+      "source": { "name": "Marine News" },
+      "author": "Marine Desk",
+      "title": "Sustainable Aquaculture Practices Gain Traction",
+      "description": "New initiatives promote sustainable aquaculture among small-scale operations.",
+      "url": "https://example.org/marine-news/aquaculture-initiative",
+      "urlToImage": "/attached_assets/stock_images/fish/placeholder-fish-2.jpg",
+      "publishedAt": "2025-11-23T14:30:00Z",
+      "content": "Programs supporting sustainable methods are being rolled out..."
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+# --- Security (CRITICAL) ---
+*.pem
+*.key
+.env
+.env.local
+
+# --- Build Output ---
+# Vercel creates this automatically. Never commit it.
+dist/
+build/
+offline-ai/models/
+# --- Dependencies ---
+node_modules/
+
+# --- Heavy/Unwanted Folders ---
+# Looks like a copy-paste error folder
+C/
+# Raw stock images (too large for git)
+attached_assets/
+# Installer executables
+*.exe
+*.bin
+# --- LLM & Unwanted AI Files (As requested) ---
+# Scripts and large model downloaders
+download-tinyllama-model.js
+build_webllm_phi3.sh
+check-models.js
+diagnose-webllm.js
+find-working-models.js
+test-urls.js
+*.wasm
+
+# --- Editor & System Junk ---
+.DS_Store
+Thumbs.db
+.replit
+replit.md
+*.log
+*.bak
+
+# --- Optional: Ignore specific source files if you want to delete them later ---
+# src/services/webllm.ts
+# src/components/social/AIChat.tsx
