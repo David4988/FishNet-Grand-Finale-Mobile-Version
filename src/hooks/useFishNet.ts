@@ -198,7 +198,7 @@ export const useFishNet = () => {
           // Disease Logic
           const dIdx = dzData.indexOf(Math.max(...dzData));
           let dName = "Healthy";
-          if (dzData[2] > 0.3) dName = "White Spot Risk";
+          if (dzData[2] > 0.1) dName = "White Spot Risk";
           else if (dzData[0] > 0.4) dName = "Black Gill Risk";
 
           return {
