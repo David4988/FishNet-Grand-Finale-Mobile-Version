@@ -6,19 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FishCatch, databaseService } from "@/services/database";
 
+// 1. Fix: Ensure bounds are correct type
+const INDIA_BOUNDS = new mapboxgl.LngLatBounds(
+  [68.0, 6.5],
+  [97.5, 37.0]
+);
+
 interface MapboxMapProps {
   className?: string;
   onCatchSelect?: (catch_data: FishCatch) => void;
 }
 
-const INDIA_BOUNDS: [[number, number], [number, number]] = [[68.0, 6.5], [97.5, 37.0]];
-
 export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]); // 2. Fix: Track markers to clear them later
+  
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("MAPBOX_TOKEN"));
   const [catches, setCatches] = useState<FishCatch[]>([]);
   const [loc, setLoc] = useState<[number, number] | null>(null);
+  const [input, setInput] = useState("");
 
   // Load catches and user location
   useEffect(() => {
@@ -39,101 +46,120 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
     }
   }, []);
 
-  // Initialize map when token available
+  // 3. Fix: Initialize Map ONLY when token changes (Not when data changes)
   useEffect(() => {
-    if (!token || !containerRef.current) return;
+    if (!token || !containerRef.current || mapRef.current) return;
 
-    mapboxgl.accessToken = token;
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: [78.9629, 20.5937],
-      zoom: 4.5,
-      pitch: 0,
-      antialias: true,
-    });
-    mapRef.current = map;
-
-    // Controls
-    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
-
-    map.on("load", () => {
-      // Fit to India by default
-      map.fitBounds(INDIA_BOUNDS, { padding: 40, duration: 0 });
-
-      // If user location available, ease to it
-      if (loc) {
-        map.easeTo({ center: loc, zoom: 11, duration: 1000 });
-        const el = document.createElement("div");
-        el.style.width = "14px";
-        el.style.height = "14px";
-        el.style.borderRadius = "9999px";
-        el.style.background = "#22c55e"; // semantic success color approx
-        el.style.boxShadow = "0 0 0 4px rgba(34,197,94,0.25)";
-        new mapboxgl.Marker({ element: el }).setLngLat(loc).addTo(map);
-      }
-
-      // Add catch markers
-      catches.forEach((c) => {
-        const el = document.createElement("div");
-        el.style.width = "40px";
-        el.style.height = "40px";
-        el.style.borderRadius = "9999px";
-        el.style.overflow = "hidden";
-        el.style.border = `3px solid ${c.confidence >= 80 ? "#10b981" : c.confidence >= 60 ? "#f59e0b" : "#ef4444"}`;
-        el.style.boxShadow = "0 6px 14px rgba(0,0,0,0.25)";
-
-        const img = document.createElement("img");
-        img.src = c.image_data;
-        img.alt = c.species;
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.objectFit = "cover";
-        el.appendChild(img);
-
-        if (onCatchSelect) {
-          el.style.cursor = "pointer";
-          el.onclick = () => onCatchSelect(c);
-        }
-
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat([c.longitude, c.latitude])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 12 }).setHTML(`
-              <div style="min-width:200px">
-                <div style="display:flex;gap:8px;align-items:center">
-                  <img src="${c.image_data}" alt="${c.species}" style="width:48px;height:48px;border-radius:6px;object-fit:cover" />
-                  <div>
-                    <div style="font-weight:600">${c.species}</div>
-                    <div style="font-size:12px;color:#6b7280">${(c.estimated_weight || 0).toFixed(1)} kg</div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:6px;margin-top:8px;font-size:12px">
-                  <span>Conf: ${c.confidence.toFixed(0)}%</span>
-                  <span>| Health: ${c.health_score.toFixed(0)}%</span>
-                </div>
-                <div style="font-size:11px;color:#6b7280;margin-top:4px">
-                  ${new Date(c.timestamp).toLocaleString()}
-                </div>
-              </div>
-            `)
-          )
-          .addTo(map);
-
-        // Ensure popup loads image nicely
-        marker.getElement().addEventListener("mouseenter", () => marker.togglePopup());
-        marker.getElement().addEventListener("mouseleave", () => marker.togglePopup());
+    try {
+      mapboxgl.accessToken = token;
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/light-v11",
+        center: [78.9629, 20.5937],
+        zoom: 4,
+        pitch: 0,
+        attributionControl: false, // Cleaner look for mobile
       });
-    });
+
+      mapRef.current = map;
+      map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+
+      map.on("load", () => {
+        map.fitBounds(INDIA_BOUNDS, { padding: 20, duration: 1000 });
+      });
+
+    } catch (error) {
+      console.error("Mapbox init failed:", error);
+    }
 
     return () => {
-      map.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, containerRef, catches.length]);
+  }, [token]); // Only re-run if token changes
 
-  const [input, setInput] = useState("");
+  // 4. Fix: Handle Markers in a separate effect
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || catches.length === 0) return;
+
+    // Clear old markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    // Add new markers
+    catches.forEach((c) => {
+      const el = document.createElement("div");
+      el.className = "catch-marker"; // Use a class for cleaner DOM
+      el.style.width = "40px";
+      el.style.height = "40px";
+      el.style.borderRadius = "50%";
+      el.style.overflow = "hidden";
+      el.style.border = `3px solid ${c.confidence >= 80 ? "#10b981" : c.confidence >= 60 ? "#f59e0b" : "#ef4444"}`;
+      el.style.boxShadow = "0 6px 14px rgba(0,0,0,0.25)";
+      el.style.backgroundColor = "white"; // Fallback if image fails
+
+      const img = document.createElement("img");
+      img.src = c.image_data;
+      img.alt = c.species;
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "cover";
+      el.appendChild(img);
+
+      if (onCatchSelect) {
+        el.style.cursor = "pointer";
+        el.onclick = () => onCatchSelect(c);
+      }
+
+      // Create popup but don't attach immediately to keep performance high
+      const popupHTML = `
+        <div style="min-width:180px; padding: 4px;">
+          <div style="display:flex;gap:8px;align-items:center">
+            <img src="${c.image_data}" style="width:40px;height:40px;border-radius:6px;object-fit:cover" />
+            <div>
+              <div style="font-weight:700;font-size:14px">${c.species}</div>
+              <div style="font-size:12px;color:#6b7280">${(c.estimated_weight || 0).toFixed(1)} kg</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([c.longitude, c.latitude])
+        .setPopup(new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(popupHTML))
+        .addTo(map);
+
+      // Simple hover effect
+      el.addEventListener('mouseenter', () => marker.togglePopup());
+      el.addEventListener('mouseleave', () => marker.togglePopup());
+
+      markersRef.current.push(marker);
+    });
+
+  }, [catches, token]); // Re-run when catches update
+
+  // 5. Fix: Handle User Location in its own effect
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loc) return;
+
+    // Add user marker
+    const el = document.createElement("div");
+    el.style.width = "16px";
+    el.style.height = "16px";
+    el.style.borderRadius = "50%";
+    el.style.backgroundColor = "#3b82f6";
+    el.style.border = "3px solid white";
+    el.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.3)";
+
+    new mapboxgl.Marker({ element: el })
+      .setLngLat(loc)
+      .addTo(map);
+
+    map.flyTo({ center: loc, zoom: 10 });
+  }, [loc]);
+
   const saveToken = () => {
     const t = input.trim();
     if (!t) return;
@@ -142,39 +168,47 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
   };
 
   return (
-    <div className={cn("relative h-screen", className)}>
+    <div className={cn("relative w-full h-full", className)}>
       {!token && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <div className="bg-background/95 border shadow-lg rounded-lg p-4 max-w-sm w-full space-y-3">
-            <div className="text-sm">Enter your Mapbox public token to enable the interactive map.</div>
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border shadow-xl rounded-xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="font-semibold text-lg">Map Configuration</h3>
+            <p className="text-sm text-muted-foreground">Enter your Mapbox public token to view the catch map.</p>
             <input
-              className="w-full px-3 py-2 rounded border bg-background"
+              className="w-full px-3 py-2 rounded-md border bg-background"
               placeholder="pk.eyJ..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
             <div className="flex gap-2">
-              <Button className="w-full" onClick={saveToken}>Save token</Button>
-              <a
-                className="text-primary text-sm underline"
-                href="https://mapbox.com/"
-                target="_blank" rel="noreferrer"
-                aria-label="Get Mapbox token"
-              >Get token</a>
+              <Button className="w-full" onClick={saveToken}>Save Token</Button>
             </div>
-            <div className="text-xs text-muted-foreground">Tip: token is stored locally and can be changed anytime.</div>
+            <div className="text-xs text-center text-muted-foreground">
+              <a href="https://mapbox.com/" target="_blank" className="underline hover:text-primary">Get a free token here</a>
+            </div>
           </div>
         </div>
       )}
-      <div ref={containerRef} className="absolute inset-0 rounded-lg overflow-hidden" />
-      <div className="absolute bottom-4 left-4 right-4 z-10">
-        <div className="bg-background/90 backdrop-blur-sm rounded-lg p-3 shadow border">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{catches.length} catches mapped</span>
-            {loc && <Badge variant="secondary">Near you</Badge>}
+      
+      {/* Map Container */}
+      <div 
+        ref={containerRef} 
+        className="w-full h-full absolute inset-0 rounded-lg overflow-hidden" 
+        style={{ minHeight: '400px' }} // Fallback height
+      />
+
+      {/* Stats Overlay */}
+      {token && (
+        <div className="absolute bottom-6 left-4 right-4 z-10">
+          <div className="bg-background/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-border/50 flex justify-between items-center">
+            <div>
+              <span className="font-bold text-lg">{catches.length}</span>
+              <span className="text-sm text-muted-foreground ml-2">Catches Mapped</span>
+            </div>
+            {loc && <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200">GPS Active</Badge>}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

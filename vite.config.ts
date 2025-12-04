@@ -18,10 +18,7 @@ export default defineConfig(({ mode }) => ({
       protocol: "ws",
     },
     // 2. SECURITY HEADERS: Critical for TensorFlow.js WASM backend
-    headers: {
-      "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
-    },
+    
   },
 
   plugins: [
