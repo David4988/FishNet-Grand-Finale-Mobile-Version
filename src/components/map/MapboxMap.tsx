@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FishCatch, databaseService } from "@/services/database";
 
-// 1. Fix: Ensure bounds are correct type
 const INDIA_BOUNDS = new mapboxgl.LngLatBounds(
   [68.0, 6.5],
   [97.5, 37.0]
@@ -20,14 +19,14 @@ interface MapboxMapProps {
 export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]); // 2. Fix: Track markers to clear them later
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("MAPBOX_TOKEN"));
   const [catches, setCatches] = useState<FishCatch[]>([]);
   const [loc, setLoc] = useState<[number, number] | null>(null);
   const [input, setInput] = useState("");
 
-  // Load catches and user location
+  // Load catches
   useEffect(() => {
     databaseService
       .getAllCatches()
@@ -36,17 +35,9 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
         setCatches(valid);
       })
       .catch(console.warn);
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (p) => setLoc([p.coords.longitude, p.coords.latitude]),
-        () => setLoc(null),
-        { enableHighAccuracy: false, timeout: 5000 }
-      );
-    }
   }, []);
 
-  // 3. Fix: Initialize Map ONLY when token changes (Not when data changes)
+  // Initialize Map
   useEffect(() => {
     if (!token || !containerRef.current || mapRef.current) return;
 
@@ -58,11 +49,30 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
         center: [78.9629, 20.5937],
         zoom: 4,
         pitch: 0,
-        attributionControl: false, // Cleaner look for mobile
+        attributionControl: false,
       });
 
       mapRef.current = map;
+
+      // --- NEW: Add Standard Navigation Controls ---
       map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+
+      // --- NEW: Add "Locate Me" Button (Fixes GPS issue) ---
+      const geolocate = new mapboxgl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true
+        },
+        trackUserLocation: true,
+        showUserHeading: true
+      });
+      map.addControl(geolocate, "top-right");
+
+      // Listen for when the user clicks the GPS button
+      geolocate.on('geolocate', (e: any) => {
+        const lon = e.coords.longitude;
+        const lat = e.coords.latitude;
+        setLoc([lon, lat]);
+      });
 
       map.on("load", () => {
         map.fitBounds(INDIA_BOUNDS, { padding: 20, duration: 1000 });
@@ -76,28 +86,26 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [token]); // Only re-run if token changes
+  }, [token]);
 
-  // 4. Fix: Handle Markers in a separate effect
+  // Handle Markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map || catches.length === 0) return;
 
-    // Clear old markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    // Add new markers
     catches.forEach((c) => {
       const el = document.createElement("div");
-      el.className = "catch-marker"; // Use a class for cleaner DOM
+      el.className = "catch-marker";
       el.style.width = "40px";
       el.style.height = "40px";
       el.style.borderRadius = "50%";
       el.style.overflow = "hidden";
       el.style.border = `3px solid ${c.confidence >= 80 ? "#10b981" : c.confidence >= 60 ? "#f59e0b" : "#ef4444"}`;
       el.style.boxShadow = "0 6px 14px rgba(0,0,0,0.25)";
-      el.style.backgroundColor = "white"; // Fallback if image fails
+      el.style.backgroundColor = "white";
 
       const img = document.createElement("img");
       img.src = c.image_data;
@@ -112,7 +120,6 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
         el.onclick = () => onCatchSelect(c);
       }
 
-      // Create popup but don't attach immediately to keep performance high
       const popupHTML = `
         <div style="min-width:180px; padding: 4px;">
           <div style="display:flex;gap:8px;align-items:center">
@@ -130,35 +137,13 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
         .setPopup(new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(popupHTML))
         .addTo(map);
 
-      // Simple hover effect
       el.addEventListener('mouseenter', () => marker.togglePopup());
       el.addEventListener('mouseleave', () => marker.togglePopup());
 
       markersRef.current.push(marker);
     });
 
-  }, [catches, token]); // Re-run when catches update
-
-  // 5. Fix: Handle User Location in its own effect
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loc) return;
-
-    // Add user marker
-    const el = document.createElement("div");
-    el.style.width = "16px";
-    el.style.height = "16px";
-    el.style.borderRadius = "50%";
-    el.style.backgroundColor = "#3b82f6";
-    el.style.border = "3px solid white";
-    el.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.3)";
-
-    new mapboxgl.Marker({ element: el })
-      .setLngLat(loc)
-      .addTo(map);
-
-    map.flyTo({ center: loc, zoom: 10 });
-  }, [loc]);
+  }, [catches, token]);
 
   const saveToken = () => {
     const t = input.trim();
@@ -194,7 +179,7 @@ export function MapboxMap({ className, onCatchSelect }: MapboxMapProps) {
       <div 
         ref={containerRef} 
         className="w-full h-full absolute inset-0 rounded-lg overflow-hidden" 
-        style={{ minHeight: '400px' }} // Fallback height
+        style={{ minHeight: '400px' }} 
       />
 
       {/* Stats Overlay */}
