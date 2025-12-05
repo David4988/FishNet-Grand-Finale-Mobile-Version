@@ -155,7 +155,6 @@ export default function AnalyzePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [measuredLength, setMeasuredLength] = useState<string | number>("-");
 
-  // Hardcoded label for "Scan Catch" based on selected language
   const currentLang = i18n?.language || localStorage.getItem("fishnet_language") || "en";
   const scanCatchDict: Record<string, string> = {
     en: "Scan Catch",
@@ -171,7 +170,6 @@ export default function AnalyzePage() {
   };
   const scanCatchLabel = scanCatchDict[currentLang] || scanCatchDict.en;
 
-  // Hardcoded labels for bottom action buttons
   const discardDict: Record<string, string> = {
     en: "Discard",
     ta: "நிராகரி",
@@ -230,17 +228,14 @@ export default function AnalyzePage() {
 
           const rawName = analysis.species.name;
           const cleanKey = rawName.split("(")[0].trim().toLowerCase();
-          // Robust lookup: Try raw key, then clean key, then fallback
           const dbEntry =
             SPECIES_DB[rawName.toLowerCase()] ||
             SPECIES_DB[cleanKey] ||
             SPECIES_DB["unknown"];
           const bio = calculateBioMetrics(analysis.boundingBox);
 
-          // Decide display language once per analysis
           const currentLang = i18n?.language || localStorage.getItem("fishnet_language") || "en";
           const speciesKey = dbEntry.key;
-          // Hardcoded species translations for stability (10+ keys)
           const speciesDict: Record<string, Record<string, string>> = {
             ta: {
               barramundi: "பாரமுண்டி",
@@ -296,7 +291,6 @@ export default function AnalyzePage() {
             ? speciesKey.replace(/_/g, " ")
             : localizedSpecies || t(`species.${speciesKey}`, { defaultValue: speciesKey.replace(/_/g, " ") });
 
-          // Hardcoded label translations for stability in key languages
           const labelDict: Record<string, Record<string, string>> = {
             ta: {
               MATCH: "பொருந்துதல்",
@@ -450,7 +444,6 @@ export default function AnalyzePage() {
             healthy: labelDict[currentLang]?.["Healthy"] || (currentLang === "en" ? "Healthy" : t("disease.healthy", { defaultValue: "Healthy" })),
           };
 
-          // Pick offline average weight sample for identified species
           const sampledWeight = pickSampleWeight(dbEntry.key);
 
           setResult({
@@ -466,7 +459,6 @@ export default function AnalyzePage() {
             waterTemp: 26 + Math.random() * 2,
             phLevel: 7.0 + Math.random() * 0.5,
             autoLength: bio.length,
-            // Hardcoded display strings at analysis time
             speciesLabel: speciesDisplay,
             diseaseLabel:
               (analysis.disease?.name && analysis.disease.name.toLowerCase() === "healthy")
@@ -579,7 +571,6 @@ export default function AnalyzePage() {
               >
                 <ArrowLeft className="w-6 h-6" />
               </Button>
-              {/** Removed LIVE FEED badge as requested **/}
               <Button
                 variant="ghost"
                 size="icon"
@@ -626,14 +617,25 @@ export default function AnalyzePage() {
                       {result.speciesLabel}
                     </h1>
                   </div>
-                  <div className="flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 shrink-0">
-                    <span className="text-2xl font-bold text-emerald-400">
+                  
+                  {/* --- DYNAMIC HEALTH CIRCLE (FIXED) --- */}
+                  <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl shrink-0 border ${
+                    result.healthScore > 70 
+                      ? "bg-emerald-950/50 border-emerald-500/30" 
+                      : "bg-red-950/50 border-red-500/30"
+                  }`}>
+                    <span className={`text-2xl font-bold ${
+                      result.healthScore > 70 ? "text-emerald-400" : "text-red-400"
+                    }`}>
                       {Math.round(result.healthScore)}
                     </span>
-                    <span className="text-[10px] text-emerald-600 uppercase font-bold">
+                    <span className={`text-[10px] uppercase font-bold ${
+                      result.healthScore > 70 ? "text-emerald-600" : "text-red-600"
+                    }`}>
                       {result.labels?.health || t("analyze.health")}
                     </span>
                   </div>
+
                 </div>
                 <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Ruler className="w-3 h-3" /> {result.labels?.biometrics || t("analyze.biometrics")}
